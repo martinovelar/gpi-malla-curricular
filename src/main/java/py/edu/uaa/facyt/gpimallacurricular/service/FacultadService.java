@@ -8,6 +8,9 @@ import py.edu.uaa.facyt.gpimallacurricular.mapper.FacultadMapper;
 import py.edu.uaa.facyt.gpimallacurricular.model.Facultad;
 import py.edu.uaa.facyt.gpimallacurricular.repository.FacultadRepository;
 
+import java.util.List;
+import java.util.Optional;
+
 @Service
 public class FacultadService {
 
@@ -19,8 +22,23 @@ public class FacultadService {
         this.mapper = mapper;
     }
 
-    public FacultadResponseDto createFacultad(FacultadRequestDto dto){
+    public List<FacultadResponseDto> getFacultades() {
+        return facultadRepository.findAll()
+                .stream()
+                .map(mapper::toFacultadResponseDto)
+                .toList();
+    }
 
+    public  FacultadResponseDto getFacultadById(Long id){
+       Facultad facultad = facultadRepository
+               .findById(id)
+               .orElseThrow(()-> new ResourceNotFoundException("Facultad con id: " + id + "no encontrada"));
+        return mapper.toFacultadResponseDto(facultad);
+    }
+
+
+
+    public FacultadResponseDto createFacultad(FacultadRequestDto dto){
         Facultad facultad = mapper.toEntityFromFacultadRequestDto(dto);
         Facultad savedFacultad = facultadRepository.save(facultad);
 
@@ -28,7 +46,6 @@ public class FacultadService {
     }
 
     public FacultadResponseDto updateFacultad(Long id, FacultadRequestDto dto){
-
         Facultad facultad = facultadRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Facultad no encontrada con id: " + id));
 
@@ -39,7 +56,6 @@ public class FacultadService {
     }
 
     public FacultadResponseDto deleteFacultad(Long id){
-
         Facultad facultad = facultadRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Facultad no encontrada con id: " + id));
 
