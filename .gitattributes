@@ -19,3 +19,5 @@
 *.jar binary
 *.png binary
 *.jpg binary
+
+*.html linguist-documentation=true
