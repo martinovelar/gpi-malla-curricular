@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPI - Malla Curricular</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f0f2f5; }
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000;
+        }
+        .modal-box {
+            background: #fff; border-radius: 10px; padding: 2rem;
+            width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="module">
+        import { createElement as h, useState, useEffect } from 'https://esm.sh/react@18';
+        import { createRoot } from 'https://esm.sh/react-dom@18/client';
+        import htm from 'https://esm.sh/htm@3';
+
+        const html = htm.bind(h);
+
+        const API = '/api/facultad';
+        const FORM_VACIO = { name: '', code: '', email: '', address: '', phoneNumber: '', dean: '' };
+
+        function App() {
+            const [facultades, setFacultades]   = useState([]);
+            const [cargando, setCargando]        = useState(true);
+            const [modal, setModal]              = useState(false);
+            const [editandoId, setEditandoId]    = useState(null);
+            const [form, setForm]                = useState(FORM_VACIO);
+            const [guardando, setGuardando]      = useState(false);
+            const [alerta, setAlerta]            = useState(null);
+
+            useEffect(() => { cargarFacultades(); }, []);
+
+            async function cargarFacultades() {
+                setCargando(true);
+                try {
+                    const res = await fetch(API);
+                    if (!res.ok) throw new Error('Error al obtener las facultades');
+                    setFacultades(await res.json());
+                } catch (e) {
+                    mostrarAlerta(e.message, 'danger');
+                } finally {
+                    setCargando(false);
+                }
+            }
+
+            function mostrarAlerta(msg, tipo = 'success') {
+                setAlerta({ msg, tipo });
+                setTimeout(() => setAlerta(null), 3500);
+            }
+
+            function abrirCrear() {
+                setForm(FORM_VACIO);
+                setEditandoId(null);
+                setModal(true);
+            }
+
+            function abrirEditar(f) {
+                setForm({
+                    name:        f.name        || '',
+                    code:        f.code        || '',
+                    email:       f.email       || '',
+                    address:     f.address     || '',
+                    phoneNumber: f.phoneNumber || '',
+                    dean:        f.dean        || '',
+                });
+                setEditandoId(f.id);
+                setModal(true);
+            }
+
+            function cerrarModal() {
+                setModal(false);
+                setEditandoId(null);
+                setForm(FORM_VACIO);
+            }
+
+            function cambiarCampo(e) {
+                const { name, value } = e.target;
+                setForm(prev => ({ ...prev, [name]: value }));
+            }
+
+            async function guardar(e) {
+                e.preventDefault();
+                setGuardando(true);
+                const url    = editandoId ? `${API}/${editandoId}` : API;
+                const metodo = editandoId ? 'PUT' : 'POST';
+                try {
+                    const res = await fetch(url, {
+                        method: metodo,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(form),
+                    });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error(err.error || 'Error al guardar');
+                    }
+                    await cargarFacultades();
+                    cerrarModal();
+                    mostrarAlerta(editandoId ? 'Facultad actualizada correctamente' : 'Facultad creada correctamente');
+                } catch (e) {
+                    mostrarAlerta(e.message, 'danger');
+                } finally {
+                    setGuardando(false);
+                }
+            }
+
+            async function eliminar(id, nombre) {
+                if (!confirm(`¿Eliminar la facultad "${nombre}"?`)) return;
+                try {
+                    const res = await fetch(`${API}/${id}`, { method: 'DELETE' });
+                    if (!res.ok) throw new Error('Error al eliminar la facultad');
+                    await cargarFacultades();
+                    mostrarAlerta('Facultad eliminada correctamente');
+                } catch (e) {
+                    mostrarAlerta(e.message, 'danger');
+                }
+            }
+
+            return html`
+                <div className="container py-5">
+                    <div className="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h2 className="mb-0 fw-bold">Facultades</h2>
+                            <small className="text-muted">GPI - Malla Curricular</small>
+                        </div>
+                        <button className="btn btn-primary px-4" onClick=${abrirCrear}>
+                            + Nueva Facultad
+                        </button>
+                    </div>
+
+                    ${alerta && html`
+                        <div className=${`alert alert-${alerta.tipo} alert-dismissible fade show`} role="alert">
+                            ${alerta.msg}
+                            <button type="button" className="btn-close" onClick=${() => setAlerta(null)} />
+                        </div>
+                    `}
+
+                    <div className="card shadow-sm border-0">
+                        ${cargando ? html`
+                            <div className="text-center py-5">
+                                <div className="spinner-border text-primary" role="status" />
+                                <p className="mt-2 text-muted">Cargando...</p>
+                            </div>
+                        ` : html`
+                            <div className="table-responsive">
+                                <table className="table table-hover align-middle mb-0">
+                                    <thead className="table-light">
+                                        <tr>
+                                            <th style=${{ width: '60px' }}>#</th>
+                                            <th>Nombre</th>
+                                            <th>Código</th>
+                                            <th>Decano</th>
+                                            <th style=${{ width: '170px' }}>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${facultades.length === 0 ? html`
+                                            <tr>
+                                                <td colSpan="5" className="text-center text-muted py-5">
+                                                    No hay facultades registradas
+                                                </td>
+                                            </tr>
+                                        ` : facultades.map(f => html`
+                                            <tr key=${f.id}>
+                                                <td className="text-muted">${f.id}</td>
+                                                <td className="fw-semibold">${f.name}</td>
+                                                <td><span className="badge bg-secondary">${f.code}</span></td>
+                                                <td className="text-muted">${f.dean || '—'}</td>
+                                                <td>
+                                                    <button className="btn btn-sm btn-outline-primary me-2"
+                                                        onClick=${() => abrirEditar(f)}>
+                                                        Editar
+                                                    </button>
+                                                    <button className="btn btn-sm btn-outline-danger"
+                                                        onClick=${() => eliminar(f.id, f.name)}>
+                                                        Eliminar
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        `)}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `}
+                    </div>
+
+                    ${modal && html`
+                        <div className="modal-overlay" onClick=${cerrarModal}>
+                            <div className="modal-box" onClick=${e => e.stopPropagation()}>
+                                <h5 className="fw-bold mb-4">
+                                    ${editandoId ? 'Editar Facultad' : 'Nueva Facultad'}
+                                </h5>
+                                <form onSubmit=${guardar}>
+                                    <div className="row g-3">
+                                        <div className="col-12">
+                                            <label className="form-label">Nombre <span className="text-danger">*</span></label>
+                                            <input className="form-control" name="name"
+                                                value=${form.name} onInput=${cambiarCampo}
+                                                placeholder="Ej: Facultad de Ciencias y Tecnología" required />
+                                        </div>
+                                        <div className="col-md-4">
+                                            <label className="form-label">Código <span className="text-danger">*</span></label>
+                                            <input className="form-control" name="code"
+                                                value=${form.code} onInput=${cambiarCampo}
+                                                placeholder="Ej: FACYT" required />
+                                        </div>
+                                        <div className="col-md-8">
+                                            <label className="form-label">Email</label>
+                                            <input className="form-control" name="email" type="email"
+                                                value=${form.email} onInput=${cambiarCampo}
+                                                placeholder="facultad@uaa.edu.py" />
+                                        </div>
+                                        <div className="col-12">
+                                            <label className="form-label">Dirección</label>
+                                            <input className="form-control" name="address"
+                                                value=${form.address} onInput=${cambiarCampo}
+                                                placeholder="Dirección de la facultad" />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Teléfono</label>
+                                            <input className="form-control" name="phoneNumber"
+                                                value=${form.phoneNumber} onInput=${cambiarCampo}
+                                                placeholder="021-000-000" />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Decano</label>
+                                            <input className="form-control" name="dean"
+                                                value=${form.dean} onInput=${cambiarCampo}
+                                                placeholder="Nombre del decano" />
+                                        </div>
+                                    </div>
+                                    <hr className="my-4" />
+                                    <div className="d-flex justify-content-end gap-2">
+                                        <button type="button" className="btn btn-secondary"
+                                            onClick=${cerrarModal}>Cancelar</button>
+                                        <button type="submit" className="btn btn-primary px-4"
+                                            disabled=${guardando}>
+                                            ${guardando ? html`<span className="spinner-border spinner-border-sm me-2" />` : null}
+                                            ${editandoId ? 'Actualizar' : 'Crear'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    `}
+                </div>
+            `;
+        }
+
+        createRoot(document.getElementById('root')).render(html`<${App} />`);
+    </script>
+</body>
+</html>

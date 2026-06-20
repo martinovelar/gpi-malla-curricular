@@ -14,4 +14,8 @@ public class FacultadResponseDto {
     private Long id;
     private String name;
     private String code;
+    private String email;
+    private String address;
+    private String phoneNumber;
+    private String dean;
 }

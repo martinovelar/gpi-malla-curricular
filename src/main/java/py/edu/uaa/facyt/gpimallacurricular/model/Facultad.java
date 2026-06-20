@@ -10,7 +10,6 @@ import lombok.*;
 @Entity
 @Table(name = "facultad")
 public class Facultad {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
