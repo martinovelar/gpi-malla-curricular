@@ -34,6 +34,19 @@
             width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
             box-shadow: 0 10px 40px rgba(0,0,0,0.15);
         }
+        .manual-box {
+            background: #fff; border-radius: 10px;
+            width: 100%; max-width: 640px; max-height: 85vh;
+            display: flex; flex-direction: column;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        }
+        .manual-body { overflow-y: auto; padding: 1.5rem; flex: 1; }
+        .shortcut-hint {
+            position: fixed; bottom: 1rem; right: 1rem;
+            background: rgba(0,0,0,0.55); color: #fff;
+            font-size: 0.75rem; padding: 0.3rem 0.65rem;
+            border-radius: 6px; pointer-events: none; z-index: 500;
+        }
     </style>
 </head>
 <body>
@@ -45,6 +58,89 @@
         import htm from 'https://esm.sh/htm@3';
 
         const html = htm.bind(h);
+
+        // ── Manual de usuario ──────────────────────────────────────────
+        const SECCIONES = {
+            menu: 'general',
+            facultad: 'facultades',
+        };
+
+        const CONTENIDO = {
+            general: {
+                titulo: 'Visión general',
+                icono: 'bi-house',
+                items: [
+                    { titulo: 'Navegación', texto: 'Desde el menú principal podés acceder a cada módulo del sistema haciendo clic en su card.' },
+                    { titulo: 'Atajo de teclado', texto: 'Presioná M en cualquier pantalla para abrir o cerrar este manual. Presioná Escape para cerrarlo.' },
+                ],
+            },
+            facultades: {
+                titulo: 'Facultades',
+                icono: 'bi-building',
+                items: [
+                    { titulo: 'Crear', texto: 'Hacé clic en "+ Nueva Facultad", completá el formulario (Nombre y Código son obligatorios) y presioná Crear.' },
+                    { titulo: 'Editar', texto: 'Hacé clic en Editar sobre la fila que querés modificar, actualizá los campos y presioná Actualizar.' },
+                    { titulo: 'Eliminar', texto: 'Hacé clic en Eliminar sobre la fila correspondiente y confirmá el diálogo. La acción no se puede deshacer.' },
+                    { titulo: 'Campos', texto: 'Nombre y Código son obligatorios. Email, Dirección, Teléfono y Decano son opcionales.' },
+                ],
+            },
+        };
+
+        function Manual({ vista, cerrar }) {
+            const [tab, setTab] = useState(SECCIONES[vista] || 'general');
+            const tabs = Object.keys(CONTENIDO);
+            const seccion = CONTENIDO[tab];
+
+            useEffect(() => {
+                function onKey(e) { if (e.key === 'Escape') cerrar(); }
+                window.addEventListener('keydown', onKey);
+                return () => window.removeEventListener('keydown', onKey);
+            }, []);
+
+            return html`
+                <div className="modal-overlay" onClick=${cerrar}>
+                    <div className="manual-box" onClick=${e => e.stopPropagation()}>
+                        <div className="d-flex align-items-center justify-content-between px-4 pt-4 pb-3 border-bottom">
+                            <h5 className="fw-bold mb-0">
+                                <i className="bi bi-book me-2 text-primary" />
+                                Manual de usuario
+                            </h5>
+                            <button className="btn-close" onClick=${cerrar} />
+                        </div>
+
+                        <div className="px-4 pt-3">
+                            <ul className="nav nav-tabs">
+                                ${tabs.map(t => html`
+                                    <li key=${t} className="nav-item">
+                                        <button
+                                            className=${'nav-link' + (tab === t ? ' active' : '')}
+                                            onClick=${() => setTab(t)}>
+                                            <i className=${'bi ' + CONTENIDO[t].icono + ' me-1'} />
+                                            ${CONTENIDO[t].titulo}
+                                        </button>
+                                    </li>
+                                `)}
+                            </ul>
+                        </div>
+
+                        <div className="manual-body">
+                            ${seccion.items.map((item, i) => html`
+                                <div key=${i} className=${'mb-4' + (i < seccion.items.length - 1 ? '' : '')}>
+                                    <h6 className="fw-semibold text-primary mb-1">
+                                        <i className="bi bi-chevron-right me-1" />${item.titulo}
+                                    </h6>
+                                    <p className="text-muted mb-0 ps-3">${item.texto}</p>
+                                </div>
+                            `)}
+                        </div>
+
+                        <div className="px-4 py-3 border-top text-muted small text-end">
+                            Presioná <kbd>M</kbd> para abrir · <kbd>Esc</kbd> para cerrar
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
 
         // ── Menu principal ─────────────────────────────────────────────
         function Menu({ irA }) {
@@ -334,13 +430,26 @@
 
         // ── Raíz ───────────────────────────────────────────────────────
         function App() {
-            const [vista, setVista] = useState('menu');
+            const [vista, setVista]       = useState('menu');
+            const [manual, setManual]     = useState(false);
+
+            useEffect(() => {
+                function onKey(e) {
+                    const tag = document.activeElement?.tagName;
+                    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+                    if (e.key === 'm' || e.key === 'M') setManual(v => !v);
+                }
+                window.addEventListener('keydown', onKey);
+                return () => window.removeEventListener('keydown', onKey);
+            }, []);
 
             return html`
                 ${vista === 'menu'
                     ? html`<${Menu} irA=${setVista} />`
                     : html`<${Facultades} volver=${() => setVista('menu')} />`
                 }
+                <div className="shortcut-hint"><kbd style=${{background:'transparent',border:'none',color:'#fff'}}>M</kbd> Ayuda</div>
+                ${manual && html`<${Manual} vista=${vista} cerrar=${() => setManual(false)} />`}
             `;
         }
 
