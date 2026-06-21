@@ -5,8 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GPI - Malla Curricular</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <style>
         body { background-color: #f0f2f5; }
+
+        .menu-card {
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+            border: none;
+        }
+        .menu-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
+        }
+        .menu-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.75rem;
+        }
+
         .modal-overlay {
             position: fixed; inset: 0;
             background: rgba(0,0,0,0.5);
@@ -30,10 +46,55 @@
 
         const html = htm.bind(h);
 
+        // ── Menu principal ─────────────────────────────────────────────
+        function Menu({ irA }) {
+            const modulos = [
+                {
+                    id: 'facultad',
+                    titulo: 'Facultades',
+                    descripcion: 'Gestión de facultades universitarias',
+                    icono: 'bi-building',
+                    color: 'primary',
+                },
+            ];
+
+            return html`
+                <div className="min-vh-100 d-flex flex-column">
+                    <header className="bg-primary text-white py-4 shadow-sm">
+                        <div className="container">
+                            <h1 className="mb-0 fw-bold fs-4">GPI - Malla Curricular</h1>
+                            <small className="opacity-75">Sistema de gestión académica</small>
+                        </div>
+                    </header>
+
+                    <main className="container py-5 flex-grow-1">
+                        <h5 className="text-muted mb-4">Seleccioná un módulo para continuar</h5>
+                        <div className="row g-4">
+                            ${modulos.map(m => html`
+                                <div key=${m.id} className="col-sm-6 col-md-4 col-lg-3">
+                                    <div className="card menu-card shadow-sm h-100 text-center p-3"
+                                        onClick=${() => irA(m.id)}>
+                                        <div className="card-body">
+                                            <div className=${'menu-icon text-' + m.color}>
+                                                <i className=${'bi ' + m.icono} />
+                                            </div>
+                                            <h6 className="card-title fw-semibold">${m.titulo}</h6>
+                                            <p className="card-text text-muted small">${m.descripcion}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `)}
+                        </div>
+                    </main>
+                </div>
+            `;
+        }
+
+        // ── CRUD Facultades ────────────────────────────────────────────
         const API = '/api/facultad';
         const FORM_VACIO = { name: '', code: '', email: '', address: '', phoneNumber: '', dean: '' };
 
-        function App() {
+        function Facultades({ volver }) {
             const [facultades, setFacultades]   = useState([]);
             const [cargando, setCargando]        = useState(true);
             const [modal, setModal]              = useState(false);
@@ -130,72 +191,83 @@
             }
 
             return html`
-                <div className="container py-5">
-                    <div className="d-flex justify-content-between align-items-center mb-4">
-                        <div>
-                            <h2 className="mb-0 fw-bold">Facultades</h2>
-                            <small className="text-muted">GPI - Malla Curricular</small>
-                        </div>
-                        <button className="btn btn-primary px-4" onClick=${abrirCrear}>
-                            + Nueva Facultad
-                        </button>
-                    </div>
-
-                    ${alerta && html`
-                        <div className=${`alert alert-${alerta.tipo} alert-dismissible fade show`} role="alert">
-                            ${alerta.msg}
-                            <button type="button" className="btn-close" onClick=${() => setAlerta(null)} />
-                        </div>
-                    `}
-
-                    <div className="card shadow-sm border-0">
-                        ${cargando ? html`
-                            <div className="text-center py-5">
-                                <div className="spinner-border text-primary" role="status" />
-                                <p className="mt-2 text-muted">Cargando...</p>
+                <div className="min-vh-100 d-flex flex-column">
+                    <header className="bg-white border-bottom py-3 shadow-sm">
+                        <div className="container d-flex align-items-center gap-3">
+                            <button className="btn btn-outline-secondary btn-sm" onClick=${volver}>
+                                <i className="bi bi-arrow-left me-1" /> Menú
+                            </button>
+                            <div>
+                                <span className="fw-bold">Facultades</span>
+                                <span className="text-muted small ms-2">GPI - Malla Curricular</span>
                             </div>
-                        ` : html`
-                            <div className="table-responsive">
-                                <table className="table table-hover align-middle mb-0">
-                                    <thead className="table-light">
-                                        <tr>
-                                            <th style=${{ width: '60px' }}>#</th>
-                                            <th>Nombre</th>
-                                            <th>Código</th>
-                                            <th>Decano</th>
-                                            <th style=${{ width: '170px' }}>Acciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${facultades.length === 0 ? html`
-                                            <tr>
-                                                <td colSpan="5" className="text-center text-muted py-5">
-                                                    No hay facultades registradas
-                                                </td>
-                                            </tr>
-                                        ` : facultades.map(f => html`
-                                            <tr key=${f.id}>
-                                                <td className="text-muted">${f.id}</td>
-                                                <td className="fw-semibold">${f.name}</td>
-                                                <td><span className="badge bg-secondary">${f.code}</span></td>
-                                                <td className="text-muted">${f.dean || '—'}</td>
-                                                <td>
-                                                    <button className="btn btn-sm btn-outline-primary me-2"
-                                                        onClick=${() => abrirEditar(f)}>
-                                                        Editar
-                                                    </button>
-                                                    <button className="btn btn-sm btn-outline-danger"
-                                                        onClick=${() => eliminar(f.id, f.name)}>
-                                                        Eliminar
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        `)}
-                                    </tbody>
-                                </table>
+                        </div>
+                    </header>
+
+                    <main className="container py-4 flex-grow-1">
+                        <div className="d-flex justify-content-between align-items-center mb-4">
+                            <h4 className="fw-bold mb-0">Listado de Facultades</h4>
+                            <button className="btn btn-primary px-4" onClick=${abrirCrear}>
+                                + Nueva Facultad
+                            </button>
+                        </div>
+
+                        ${alerta && html`
+                            <div className=${`alert alert-${alerta.tipo} alert-dismissible fade show`} role="alert">
+                                ${alerta.msg}
+                                <button type="button" className="btn-close" onClick=${() => setAlerta(null)} />
                             </div>
                         `}
-                    </div>
+
+                        <div className="card shadow-sm border-0">
+                            ${cargando ? html`
+                                <div className="text-center py-5">
+                                    <div className="spinner-border text-primary" role="status" />
+                                    <p className="mt-2 text-muted">Cargando...</p>
+                                </div>
+                            ` : html`
+                                <div className="table-responsive">
+                                    <table className="table table-hover align-middle mb-0">
+                                        <thead className="table-light">
+                                            <tr>
+                                                <th style=${{ width: '60px' }}>#</th>
+                                                <th>Nombre</th>
+                                                <th>Código</th>
+                                                <th>Decano</th>
+                                                <th style=${{ width: '170px' }}>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${facultades.length === 0 ? html`
+                                                <tr>
+                                                    <td colSpan="5" className="text-center text-muted py-5">
+                                                        No hay facultades registradas
+                                                    </td>
+                                                </tr>
+                                            ` : facultades.map(f => html`
+                                                <tr key=${f.id}>
+                                                    <td className="text-muted">${f.id}</td>
+                                                    <td className="fw-semibold">${f.name}</td>
+                                                    <td><span className="badge bg-secondary">${f.code}</span></td>
+                                                    <td className="text-muted">${f.dean || '—'}</td>
+                                                    <td>
+                                                        <button className="btn btn-sm btn-outline-primary me-2"
+                                                            onClick=${() => abrirEditar(f)}>
+                                                            Editar
+                                                        </button>
+                                                        <button className="btn btn-sm btn-outline-danger"
+                                                            onClick=${() => eliminar(f.id, f.name)}>
+                                                            Eliminar
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            `)}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `}
+                        </div>
+                    </main>
 
                     ${modal && html`
                         <div className="modal-overlay" onClick=${cerrarModal}>
@@ -257,6 +329,18 @@
                         </div>
                     `}
                 </div>
+            `;
+        }
+
+        // ── Raíz ───────────────────────────────────────────────────────
+        function App() {
+            const [vista, setVista] = useState('menu');
+
+            return html`
+                ${vista === 'menu'
+                    ? html`<${Menu} irA=${setVista} />`
+                    : html`<${Facultades} volver=${() => setVista('menu')} />`
+                }
             `;
         }
 
