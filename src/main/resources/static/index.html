@@ -63,6 +63,8 @@
         const SECCIONES = {
             menu: 'general',
             facultad: 'facultades',
+            carrera: 'carreras',
+            materia: 'materias',
         };
 
         const CONTENIDO = {
@@ -82,6 +84,26 @@
                     { titulo: 'Editar', texto: 'Hacé clic en Editar sobre la fila que querés modificar, actualizá los campos y presioná Actualizar.' },
                     { titulo: 'Eliminar', texto: 'Hacé clic en Eliminar sobre la fila correspondiente y confirmá el diálogo. La acción no se puede deshacer.' },
                     { titulo: 'Campos', texto: 'Nombre y Código son obligatorios. Email, Dirección, Teléfono y Decano son opcionales.' },
+                ],
+            },
+            carreras: {
+                titulo: 'Carreras',
+                icono: 'bi-mortarboard',
+                items: [
+                    { titulo: 'Crear', texto: 'Hacé clic en "+ Nueva Carrera", completá el formulario (Nombre, Código y Facultad son obligatorios) y presioná Crear.' },
+                    { titulo: 'Editar', texto: 'Hacé clic en Editar sobre la fila que querés modificar, actualizá los campos y presioná Actualizar.' },
+                    { titulo: 'Eliminar', texto: 'Hacé clic en Eliminar sobre la fila correspondiente y confirmá el diálogo. La acción no se puede deshacer.' },
+                    { titulo: 'Campos', texto: 'Nombre, Código y Facultad son obligatorios. Duración (en semestres) y Coordinador son opcionales.' },
+                ],
+            },
+            materias: {
+                titulo: 'Materias',
+                icono: 'bi-journal-text',
+                items: [
+                    { titulo: 'Crear', texto: 'Hacé clic en "+ Nueva Materia", completá el formulario (Nombre, Código y Carrera son obligatorios) y presioná Crear.' },
+                    { titulo: 'Editar', texto: 'Hacé clic en Editar sobre la fila que querés modificar, actualizá los campos y presioná Actualizar.' },
+                    { titulo: 'Eliminar', texto: 'Hacé clic en Eliminar sobre la fila correspondiente y confirmá el diálogo. La acción no se puede deshacer.' },
+                    { titulo: 'Campos', texto: 'Nombre, Código y Carrera son obligatorios. Créditos y Semestre son opcionales.' },
                 ],
             },
         };
@@ -158,16 +180,16 @@
                     titulo: 'Carreras',
                     descripcion: 'Gestión de carreras académicas',
                     icono: 'bi-mortarboard',
-                    color: 'secondary',
-                    activo: false,
+                    color: 'success',
+                    activo: true,
                 },
                 {
                     id: 'materia',
                     titulo: 'Materias',
                     descripcion: 'Gestión de materias y asignaturas',
                     icono: 'bi-journal-text',
-                    color: 'secondary',
-                    activo: false,
+                    color: 'info',
+                    activo: true,
                 },
                 {
                     id: 'malla',
@@ -460,6 +482,523 @@
             `;
         }
 
+        // ── CRUD Carreras ──────────────────────────────────────────────
+        const API_CARRERA = '/api/carrera';
+        const FORM_CARRERA_VACIO = { name: '', code: '', duration: '', coordinador: '', facultadId: '' };
+
+        function Carreras({ volver }) {
+            const [carreras, setCarreras]     = useState([]);
+            const [facultades, setFacultades] = useState([]);
+            const [cargando, setCargando]     = useState(true);
+            const [modal, setModal]           = useState(false);
+            const [editandoId, setEditandoId] = useState(null);
+            const [form, setForm]             = useState(FORM_CARRERA_VACIO);
+            const [guardando, setGuardando]   = useState(false);
+            const [alerta, setAlerta]         = useState(null);
+
+            useEffect(() => { cargarCarreras(); cargarFacultades(); }, []);
+
+            async function cargarCarreras() {
+                setCargando(true);
+                try {
+                    const res = await fetch(API_CARRERA);
+                    if (!res.ok) throw new Error('Error al obtener las carreras');
+                    setCarreras(await res.json());
+                } catch (e) {
+                    mostrarAlerta(e.message, 'danger');
+                } finally {
+                    setCargando(false);
+                }
+            }
+
+            async function cargarFacultades() {
+                try {
+                    const res = await fetch('/api/facultad');
+                    if (!res.ok) throw new Error();
+                    setFacultades(await res.json());
+                } catch {
+                    mostrarAlerta('No se pudieron cargar las facultades', 'danger');
+                }
+            }
+
+            function mostrarAlerta(msg, tipo = 'success') {
+                setAlerta({ msg, tipo });
+                setTimeout(() => setAlerta(null), 3500);
+            }
+
+            function abrirCrear() {
+                setForm(FORM_CARRERA_VACIO);
+                setEditandoId(null);
+                setModal(true);
+            }
+
+            function abrirEditar(c) {
+                setForm({
+                    name:        c.name        || '',
+                    code:        c.code        || '',
+                    duration:    c.duration    != null ? String(c.duration)  : '',
+                    coordinador: c.coordinador || '',
+                    facultadId:  c.facultadId  != null ? String(c.facultadId) : '',
+                });
+                setEditandoId(c.id);
+                setModal(true);
+            }
+
+            function cerrarModal() {
+                setModal(false);
+                setEditandoId(null);
+                setForm(FORM_CARRERA_VACIO);
+            }
+
+            function cambiarCampo(e) {
+                const { name, value } = e.target;
+                setForm(prev => ({ ...prev, [name]: value }));
+            }
+
+            async function guardar(e) {
+                e.preventDefault();
+                setGuardando(true);
+                const url    = editandoId ? `${API_CARRERA}/${editandoId}` : API_CARRERA;
+                const metodo = editandoId ? 'PUT' : 'POST';
+                const payload = {
+                    ...form,
+                    duration:   form.duration   !== '' ? Number(form.duration)   : null,
+                    facultadId: form.facultadId !== '' ? Number(form.facultadId) : null,
+                };
+                try {
+                    const res = await fetch(url, {
+                        method: metodo,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error(err.error || 'Error al guardar');
+                    }
+                    await cargarCarreras();
+                    cerrarModal();
+                    mostrarAlerta(editandoId ? 'Carrera actualizada correctamente' : 'Carrera creada correctamente');
+                } catch (e) {
+                    mostrarAlerta(e.message, 'danger');
+                } finally {
+                    setGuardando(false);
+                }
+            }
+
+            async function eliminar(id, nombre) {
+                if (!confirm(`¿Eliminar la carrera "${nombre}"?`)) return;
+                try {
+                    const res = await fetch(`${API_CARRERA}/${id}`, { method: 'DELETE' });
+                    if (!res.ok) throw new Error('Error al eliminar la carrera');
+                    await cargarCarreras();
+                    mostrarAlerta('Carrera eliminada correctamente');
+                } catch (e) {
+                    mostrarAlerta(e.message, 'danger');
+                }
+            }
+
+            return html`
+                <div className="min-vh-100 d-flex flex-column">
+                    <header className="bg-white border-bottom py-3 shadow-sm">
+                        <div className="container d-flex align-items-center gap-3">
+                            <button className="btn btn-outline-secondary btn-sm" onClick=${volver}>
+                                <i className="bi bi-arrow-left me-1" /> Menú
+                            </button>
+                            <div>
+                                <span className="fw-bold">Carreras</span>
+                                <span className="text-muted small ms-2">GPI - Malla Curricular</span>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="container py-4 flex-grow-1">
+                        <div className="d-flex justify-content-between align-items-center mb-4">
+                            <h4 className="fw-bold mb-0">Listado de Carreras</h4>
+                            <button className="btn btn-success px-4" onClick=${abrirCrear}>
+                                + Nueva Carrera
+                            </button>
+                        </div>
+
+                        ${alerta && html`
+                            <div className=${`alert alert-${alerta.tipo} alert-dismissible fade show`} role="alert">
+                                ${alerta.msg}
+                                <button type="button" className="btn-close" onClick=${() => setAlerta(null)} />
+                            </div>
+                        `}
+
+                        <div className="card shadow-sm border-0">
+                            ${cargando ? html`
+                                <div className="text-center py-5">
+                                    <div className="spinner-border text-success" role="status" />
+                                    <p className="mt-2 text-muted">Cargando...</p>
+                                </div>
+                            ` : html`
+                                <div className="table-responsive">
+                                    <table className="table table-hover align-middle mb-0">
+                                        <thead className="table-light">
+                                            <tr>
+                                                <th style=${{ width: '60px' }}>#</th>
+                                                <th>Nombre</th>
+                                                <th>Código</th>
+                                                <th>Facultad</th>
+                                                <th>Coordinador</th>
+                                                <th style=${{ width: '170px' }}>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${carreras.length === 0 ? html`
+                                                <tr>
+                                                    <td colSpan="6" className="text-center text-muted py-5">
+                                                        No hay carreras registradas
+                                                    </td>
+                                                </tr>
+                                            ` : carreras.map(c => html`
+                                                <tr key=${c.id}>
+                                                    <td className="text-muted">${c.id}</td>
+                                                    <td className="fw-semibold">${c.name}</td>
+                                                    <td><span className="badge bg-success">${c.code}</span></td>
+                                                    <td className="text-muted">${c.facultadName || '—'}</td>
+                                                    <td className="text-muted">${c.coordinador || '—'}</td>
+                                                    <td>
+                                                        <button className="btn btn-sm btn-outline-primary me-2"
+                                                            onClick=${() => abrirEditar(c)}>
+                                                            Editar
+                                                        </button>
+                                                        <button className="btn btn-sm btn-outline-danger"
+                                                            onClick=${() => eliminar(c.id, c.name)}>
+                                                            Eliminar
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            `)}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `}
+                        </div>
+                    </main>
+
+                    ${modal && html`
+                        <div className="modal-overlay" onClick=${cerrarModal}>
+                            <div className="modal-box" onClick=${e => e.stopPropagation()}>
+                                <h5 className="fw-bold mb-4">
+                                    ${editandoId ? 'Editar Carrera' : 'Nueva Carrera'}
+                                </h5>
+                                <form onSubmit=${guardar}>
+                                    <div className="row g-3">
+                                        <div className="col-12">
+                                            <label className="form-label">Nombre <span className="text-danger">*</span></label>
+                                            <input className="form-control" name="name"
+                                                value=${form.name} onInput=${cambiarCampo}
+                                                placeholder="Ej: Ingeniería en Sistemas" required />
+                                        </div>
+                                        <div className="col-md-5">
+                                            <label className="form-label">Código <span className="text-danger">*</span></label>
+                                            <input className="form-control" name="code"
+                                                value=${form.code} onInput=${cambiarCampo}
+                                                placeholder="Ej: ING-SIS" required />
+                                        </div>
+                                        <div className="col-md-7">
+                                            <label className="form-label">Facultad <span className="text-danger">*</span></label>
+                                            <select className="form-select" name="facultadId"
+                                                value=${form.facultadId} onChange=${cambiarCampo} required>
+                                                <option value="">Seleccioná una facultad</option>
+                                                ${facultades.map(f => html`
+                                                    <option key=${f.id} value=${f.id}>${f.name}</option>
+                                                `)}
+                                            </select>
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Duración (semestres)</label>
+                                            <input className="form-control" name="duration" type="number" min="1"
+                                                value=${form.duration} onInput=${cambiarCampo}
+                                                placeholder="Ej: 10" />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Coordinador</label>
+                                            <input className="form-control" name="coordinador"
+                                                value=${form.coordinador} onInput=${cambiarCampo}
+                                                placeholder="Nombre del coordinador" />
+                                        </div>
+                                    </div>
+                                    <hr className="my-4" />
+                                    <div className="d-flex justify-content-end gap-2">
+                                        <button type="button" className="btn btn-secondary"
+                                            onClick=${cerrarModal}>Cancelar</button>
+                                        <button type="submit" className="btn btn-success px-4"
+                                            disabled=${guardando}>
+                                            ${guardando ? html`<span className="spinner-border spinner-border-sm me-2" />` : null}
+                                            ${editandoId ? 'Actualizar' : 'Crear'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    `}
+                </div>
+            `;
+        }
+
+        // ── CRUD Materias ──────────────────────────────────────────────
+        const API_MATERIA = '/api/materia';
+        const FORM_MATERIA_VACIO = { name: '', code: '', credits: '', semester: '', carreraId: '' };
+
+        function Materias({ volver }) {
+            const [materias, setMaterias]   = useState([]);
+            const [carreras, setCarreras]   = useState([]);
+            const [cargando, setCargando]   = useState(true);
+            const [modal, setModal]         = useState(false);
+            const [editandoId, setEditandoId] = useState(null);
+            const [form, setForm]           = useState(FORM_MATERIA_VACIO);
+            const [guardando, setGuardando] = useState(false);
+            const [alerta, setAlerta]       = useState(null);
+
+            useEffect(() => { cargarMaterias(); cargarCarreras(); }, []);
+
+            async function cargarMaterias() {
+                setCargando(true);
+                try {
+                    const res = await fetch(API_MATERIA);
+                    if (!res.ok) throw new Error('Error al obtener las materias');
+                    setMaterias(await res.json());
+                } catch (e) {
+                    mostrarAlerta(e.message, 'danger');
+                } finally {
+                    setCargando(false);
+                }
+            }
+
+            async function cargarCarreras() {
+                try {
+                    const res = await fetch(API_CARRERA);
+                    if (!res.ok) throw new Error();
+                    setCarreras(await res.json());
+                } catch {
+                    mostrarAlerta('No se pudieron cargar las carreras', 'danger');
+                }
+            }
+
+            function mostrarAlerta(msg, tipo = 'success') {
+                setAlerta({ msg, tipo });
+                setTimeout(() => setAlerta(null), 3500);
+            }
+
+            function abrirCrear() {
+                setForm(FORM_MATERIA_VACIO);
+                setEditandoId(null);
+                setModal(true);
+            }
+
+            function abrirEditar(m) {
+                setForm({
+                    name:      m.name      || '',
+                    code:      m.code      || '',
+                    credits:   m.credits   != null ? String(m.credits)   : '',
+                    semester:  m.semester  != null ? String(m.semester)  : '',
+                    carreraId: m.carreraId != null ? String(m.carreraId) : '',
+                });
+                setEditandoId(m.id);
+                setModal(true);
+            }
+
+            function cerrarModal() {
+                setModal(false);
+                setEditandoId(null);
+                setForm(FORM_MATERIA_VACIO);
+            }
+
+            function cambiarCampo(e) {
+                const { name, value } = e.target;
+                setForm(prev => ({ ...prev, [name]: value }));
+            }
+
+            async function guardar(e) {
+                e.preventDefault();
+                setGuardando(true);
+                const url    = editandoId ? `${API_MATERIA}/${editandoId}` : API_MATERIA;
+                const metodo = editandoId ? 'PUT' : 'POST';
+                const payload = {
+                    ...form,
+                    credits:   form.credits   !== '' ? Number(form.credits)   : null,
+                    semester:  form.semester  !== '' ? Number(form.semester)  : null,
+                    carreraId: form.carreraId !== '' ? Number(form.carreraId) : null,
+                };
+                try {
+                    const res = await fetch(url, {
+                        method: metodo,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error(err.error || 'Error al guardar');
+                    }
+                    await cargarMaterias();
+                    cerrarModal();
+                    mostrarAlerta(editandoId ? 'Materia actualizada correctamente' : 'Materia creada correctamente');
+                } catch (e) {
+                    mostrarAlerta(e.message, 'danger');
+                } finally {
+                    setGuardando(false);
+                }
+            }
+
+            async function eliminar(id, nombre) {
+                if (!confirm(`¿Eliminar la materia "${nombre}"?`)) return;
+                try {
+                    const res = await fetch(`${API_MATERIA}/${id}`, { method: 'DELETE' });
+                    if (!res.ok) throw new Error('Error al eliminar la materia');
+                    await cargarMaterias();
+                    mostrarAlerta('Materia eliminada correctamente');
+                } catch (e) {
+                    mostrarAlerta(e.message, 'danger');
+                }
+            }
+
+            return html`
+                <div className="min-vh-100 d-flex flex-column">
+                    <header className="bg-white border-bottom py-3 shadow-sm">
+                        <div className="container d-flex align-items-center gap-3">
+                            <button className="btn btn-outline-secondary btn-sm" onClick=${volver}>
+                                <i className="bi bi-arrow-left me-1" /> Menú
+                            </button>
+                            <div>
+                                <span className="fw-bold">Materias</span>
+                                <span className="text-muted small ms-2">GPI - Malla Curricular</span>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="container py-4 flex-grow-1">
+                        <div className="d-flex justify-content-between align-items-center mb-4">
+                            <h4 className="fw-bold mb-0">Listado de Materias</h4>
+                            <button className="btn btn-info px-4" onClick=${abrirCrear}>
+                                + Nueva Materia
+                            </button>
+                        </div>
+
+                        ${alerta && html`
+                            <div className=${`alert alert-${alerta.tipo} alert-dismissible fade show`} role="alert">
+                                ${alerta.msg}
+                                <button type="button" className="btn-close" onClick=${() => setAlerta(null)} />
+                            </div>
+                        `}
+
+                        <div className="card shadow-sm border-0">
+                            ${cargando ? html`
+                                <div className="text-center py-5">
+                                    <div className="spinner-border text-info" role="status" />
+                                    <p className="mt-2 text-muted">Cargando...</p>
+                                </div>
+                            ` : html`
+                                <div className="table-responsive">
+                                    <table className="table table-hover align-middle mb-0">
+                                        <thead className="table-light">
+                                            <tr>
+                                                <th style=${{ width: '60px' }}>#</th>
+                                                <th>Nombre</th>
+                                                <th>Código</th>
+                                                <th>Carrera</th>
+                                                <th>Créditos</th>
+                                                <th>Semestre</th>
+                                                <th style=${{ width: '170px' }}>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${materias.length === 0 ? html`
+                                                <tr>
+                                                    <td colSpan="7" className="text-center text-muted py-5">
+                                                        No hay materias registradas
+                                                    </td>
+                                                </tr>
+                                            ` : materias.map(m => html`
+                                                <tr key=${m.id}>
+                                                    <td className="text-muted">${m.id}</td>
+                                                    <td className="fw-semibold">${m.name}</td>
+                                                    <td><span className="badge bg-info text-dark">${m.code}</span></td>
+                                                    <td className="text-muted">${m.carreraName || '—'}</td>
+                                                    <td className="text-muted">${m.credits != null ? m.credits : '—'}</td>
+                                                    <td className="text-muted">${m.semester != null ? m.semester : '—'}</td>
+                                                    <td>
+                                                        <button className="btn btn-sm btn-outline-primary me-2"
+                                                            onClick=${() => abrirEditar(m)}>
+                                                            Editar
+                                                        </button>
+                                                        <button className="btn btn-sm btn-outline-danger"
+                                                            onClick=${() => eliminar(m.id, m.name)}>
+                                                            Eliminar
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            `)}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `}
+                        </div>
+                    </main>
+
+                    ${modal && html`
+                        <div className="modal-overlay" onClick=${cerrarModal}>
+                            <div className="modal-box" onClick=${e => e.stopPropagation()}>
+                                <h5 className="fw-bold mb-4">
+                                    ${editandoId ? 'Editar Materia' : 'Nueva Materia'}
+                                </h5>
+                                <form onSubmit=${guardar}>
+                                    <div className="row g-3">
+                                        <div className="col-12">
+                                            <label className="form-label">Nombre <span className="text-danger">*</span></label>
+                                            <input className="form-control" name="name"
+                                                value=${form.name} onInput=${cambiarCampo}
+                                                placeholder="Ej: Programación I" required />
+                                        </div>
+                                        <div className="col-md-5">
+                                            <label className="form-label">Código <span className="text-danger">*</span></label>
+                                            <input className="form-control" name="code"
+                                                value=${form.code} onInput=${cambiarCampo}
+                                                placeholder="Ej: PROG-001" required />
+                                        </div>
+                                        <div className="col-md-7">
+                                            <label className="form-label">Carrera <span className="text-danger">*</span></label>
+                                            <select className="form-select" name="carreraId"
+                                                value=${form.carreraId} onChange=${cambiarCampo} required>
+                                                <option value="">Seleccioná una carrera</option>
+                                                ${carreras.map(c => html`
+                                                    <option key=${c.id} value=${c.id}>${c.name}</option>
+                                                `)}
+                                            </select>
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Créditos</label>
+                                            <input className="form-control" name="credits" type="number" min="1"
+                                                value=${form.credits} onInput=${cambiarCampo}
+                                                placeholder="Ej: 4" />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Semestre</label>
+                                            <input className="form-control" name="semester" type="number" min="1"
+                                                value=${form.semester} onInput=${cambiarCampo}
+                                                placeholder="Ej: 1" />
+                                        </div>
+                                    </div>
+                                    <hr className="my-4" />
+                                    <div className="d-flex justify-content-end gap-2">
+                                        <button type="button" className="btn btn-secondary"
+                                            onClick=${cerrarModal}>Cancelar</button>
+                                        <button type="submit" className="btn btn-info px-4"
+                                            disabled=${guardando}>
+                                            ${guardando ? html`<span className="spinner-border spinner-border-sm me-2" />` : null}
+                                            ${editandoId ? 'Actualizar' : 'Crear'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    `}
+                </div>
+            `;
+        }
+
         // ── Raíz ───────────────────────────────────────────────────────
         function App() {
             const [vista, setVista]       = useState('menu');
@@ -478,7 +1017,11 @@
             return html`
                 ${vista === 'menu'
                     ? html`<${Menu} irA=${setVista} />`
-                    : html`<${Facultades} volver=${() => setVista('menu')} />`
+                    : vista === 'carrera'
+                        ? html`<${Carreras} volver=${() => setVista('menu')} />`
+                        : vista === 'materia'
+                            ? html`<${Materias} volver=${() => setVista('menu')} />`
+                            : html`<${Facultades} volver=${() => setVista('menu')} />`
                 }
                 <div className="shortcut-hint"><kbd style=${{background:'transparent',border:'none',color:'#fff'}}>M</kbd> Ayuda</div>
                 ${manual && html`<${Manual} vista=${vista} cerrar=${() => setManual(false)} />`}
